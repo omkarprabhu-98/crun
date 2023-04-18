@@ -69,6 +69,7 @@ libwasmedge_unload (void *cookie, libcrun_error_t *err arg_unused)
 static int
 libwasmedge_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *container, const char *pathname, char *const argv[])
 {
+  // WASMEDGE_CAPI_EXPORT extern WasmEdge_ConfigureContext *WasmEdge_ConfigureCreate(void);
   WasmEdge_ConfigureContext *(*WasmEdge_ConfigureCreate) (void);
   void (*WasmEdge_ConfigureDelete) (WasmEdge_ConfigureContext * Cxt);
   void (*WasmEdge_ConfigureAddProposal) (WasmEdge_ConfigureContext * Cxt, const enum WasmEdge_Proposal Prop);
@@ -79,6 +80,9 @@ libwasmedge_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *co
   WasmEdge_Result (*WasmEdge_VMRunWasmFromFile) (WasmEdge_VMContext * Cxt, const char *Path, const WasmEdge_String FuncName, const WasmEdge_Value *Params, const uint32_t ParamLen, WasmEdge_Value *Returns, const uint32_t ReturnLen);
   bool (*WasmEdge_ResultOK) (const WasmEdge_Result Res);
   WasmEdge_String (*WasmEdge_StringCreateByCString) (const char *Str);
+  // WASMEDGE_CAPI_EXPORT extern void WasmEdge_PluginLoadWithDefaultPaths(void);
+  void *(*WasmEdge_PluginLoadWithDefaultPaths) (void);
+
   uint32_t argn = 0;
   uint32_t envn = 0;
   const char *dirs[2] = { "/:/", ".:." };
@@ -102,13 +106,17 @@ libwasmedge_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *co
   WasmEdge_VMRunWasmFromFile = dlsym (cookie, "WasmEdge_VMRunWasmFromFile");
   WasmEdge_ResultOK = dlsym (cookie, "WasmEdge_ResultOK");
   WasmEdge_StringCreateByCString = dlsym (cookie, "WasmEdge_StringCreateByCString");
+  WasmEdge_PluginLoadWithDefaultPaths = dlsym(cookie, "WasmEdge_PluginLoadWithDefaultPaths");
 
   if (WasmEdge_ConfigureCreate == NULL || WasmEdge_ConfigureDelete == NULL || WasmEdge_ConfigureAddProposal == NULL
       || WasmEdge_ConfigureAddHostRegistration == NULL || WasmEdge_VMCreate == NULL || WasmEdge_VMDelete == NULL
       || WasmEdge_VMRegisterModuleFromFile == NULL || WasmEdge_VMGetImportModuleContext == NULL
       || WasmEdge_ModuleInstanceInitWASI == NULL || WasmEdge_VMRunWasmFromFile == NULL
-      || WasmEdge_ResultOK == NULL || WasmEdge_StringCreateByCString == NULL)
+      || WasmEdge_ResultOK == NULL || WasmEdge_StringCreateByCString == NULL
+      || WasmEdge_PluginLoadWithDefaultPaths == NULL)
     error (EXIT_FAILURE, 0, "could not find symbol in `libwasmedge.so.0`");
+
+  WasmEdge_PluginLoadWithDefaultPaths();
 
   configure = WasmEdge_ConfigureCreate ();
   if (UNLIKELY (configure == NULL))
@@ -118,6 +126,7 @@ libwasmedge_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *co
   WasmEdge_ConfigureAddProposal (configure, WasmEdge_Proposal_ReferenceTypes);
   WasmEdge_ConfigureAddProposal (configure, WasmEdge_Proposal_SIMD);
   WasmEdge_ConfigureAddHostRegistration (configure, WasmEdge_HostRegistration_Wasi);
+  WasmEdge_ConfigureAddHostRegistration (configure, WasmEdge_HostRegistration_WasiNN);
 
   vm = WasmEdge_VMCreate (configure, NULL);
   if (UNLIKELY (vm == NULL))
